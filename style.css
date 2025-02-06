@@ -29,3 +29,20 @@
     width: 100%;
     margin-top: 10px;
 }
+
+/* Additional styles for bilingual text */
+h1, h2, h3 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+}
+
+p {
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+/* Japanese text adjustments */
+:lang(ja) {
+    font-family: "Hiragino Kaku Gothic Pro", "Yu Gothic", "Meiryo", sans-serif;
+    line-height: 1.7;
+}
