@@ -1,0 +1,129 @@
+次の仕様を満たす、PDFファイルをページ分割するWebアプリを作成してください。
+・ユーザは、1つのPDFファイルをアップロードします。
+・Webアプリは、ページ分割処理を施した1つのPDFファイルを作成し、ユーザはダウンロードできます。分割については、以下に示すPythonコードを参考にしてください。
+
+==========================================
+import fitz  # PyMuPDF
+import cv2
+import numpy as np
+
+def detect_slides_in_page(page, zoom_x=4.0, zoom_y=4.0):
+    """
+    PDFページを画像に変換し、OpenCVで黒枠のスライドを検出する関数。
+    戻り値は[(x, y, w, h), ...]という矩形のリスト(PDF座標系)。
+    """
+
+    # 1) PDFをPixmapに変換 (解像度を上げるならzoomを調整)
+    mat = fitz.Matrix(zoom_x, zoom_y)
+    pix = page.get_pixmap(matrix=mat, alpha=False)
+
+    # 2) PixmapをOpenCV(Numpy配列)形式に変換
+    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+
+    # 3) グレースケール化
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # 4) 二値化 (もしくはCanny)
+    #    枠線が黒なので、しきい値を下げて黒領域を抽出する
+    _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY_INV)
+
+    # 5) 輪郭抽出
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # 6) 大きめの四角形の輪郭のみ残す
+    candidate_boxes = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        area = w * h
+        if area < 80000:  # 小さすぎるものは除外
+            continue
+        # 厳密に四角形を判定したい場合: approxPolyDPなど
+        # approx = cv2.approxPolyDP(cnt, 0.02 * cv2.arcLength(cnt, True), True)
+        # if len(approx) == 4:
+        #     candidate_boxes.append((x, y, w, h))
+        # else:
+        #     continue
+        candidate_boxes.append((x, y, w, h))
+
+    # 7) y座標順(上→下)にソート
+    candidate_boxes.sort(key=lambda box: box[1])
+
+    # 8) 画像座標(ピクセル)をPDFの座標(ポイント)に変換
+    page_w = page.rect.width
+    page_h = page.rect.height
+    img_w = pix.width
+    img_h = pix.height
+
+    # スケーリング:
+    # pdf_x = (x / img_w) * page_w
+    # pdf_y = (y / img_h) * page_h
+    # pdf_w = (w / img_w) * page_w
+    # pdf_h = (h / img_h) * page_h
+    pdf_boxes = []
+    for (x, y, w, h) in candidate_boxes:
+        pdf_x = (x / img_w) * page_w
+        pdf_y = (y / img_h) * page_h
+        pdf_w = (w / img_w) * page_w
+        pdf_h = (h / img_h) * page_h
+        pdf_boxes.append((pdf_x, pdf_y, pdf_w, pdf_h))
+
+    return pdf_boxes
+
+def auto_crop_pdf(input_file, output_file):
+    original_doc = fitz.open(input_file)
+    new_doc = fitz.open()
+
+    for page_index, page in enumerate(original_doc):
+        # 黒枠のスライドを検出
+        boxes = detect_slides_in_page(page, zoom_x=4.0, zoom_y=4.0)
+
+        # この例では、スライドが2つあると仮定して上・下を取り出す
+        if len(boxes) >= 2:
+            top_box = boxes[0]
+            bottom_box = boxes[1]
+            # (x, y, w, h) -> Rectオブジェクト
+            top_rect = fitz.Rect(top_box[0],
+                                 top_box[1],
+                                 top_box[0] + top_box[2],
+                                 top_box[1] + top_box[3])
+            bottom_rect = fitz.Rect(bottom_box[0],
+                                    bottom_box[1],
+                                    bottom_box[0] + bottom_box[2],
+                                    bottom_box[1] + bottom_box[3])
+
+            # 新しいページへ貼り付け
+            # 1) 上スライド
+            top_page = new_doc.new_page(
+                width=top_rect.width,
+                height=top_rect.height
+            )
+            top_page.show_pdf_page(
+                top_page.rect,
+                original_doc,
+                page_index,
+                clip=top_rect
+            )
+
+            # 2) 下スライド
+            bottom_page = new_doc.new_page(
+                width=bottom_rect.width,
+                height=bottom_rect.height
+            )
+            bottom_page.show_pdf_page(
+                bottom_page.rect,
+                original_doc,
+                page_index,
+                clip=bottom_rect
+            )
+        else:
+            # 2枚見つからなければスキップするなど処理を追加
+            pass
+
+    new_doc.save(output_file)
+    new_doc.close()
+    original_doc.close()
+
+if __name__ == "__main__":
+    input_path = "input.pdf"
+    output_path = "output.pdf"
+    auto_crop_pdf(input_path, output_path)
