@@ -1,5 +1,9 @@
 # SlideSplit: Effortless PDF Slide Extraction
 
+## Deployed as of 6 Feb 2025 (Streamlit Community Cloud)
+https://pdfslidespliter.streamlit.app/
+
+
 ## 🚀 Automatically Extract & Organize Slides from PDFs!
 Tired of manually splitting double-sided slides in your PDF files? **SlideSplit** does it all for you—automatically detecting slide boundaries and creating a perfectly formatted, one-slide-per-page PDF.
 
