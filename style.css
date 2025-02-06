@@ -1,0 +1,31 @@
+.stApp {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.upload-container {
+    border: 2px dashed #cccccc;
+    border-radius: 5px;
+    padding: 20px;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.success-message {
+    color: #28a745;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 10px 0;
+}
+
+.error-message {
+    color: #dc3545;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 10px 0;
+}
+
+.stButton > button {
+    width: 100%;
+    margin-top: 10px;
+}
